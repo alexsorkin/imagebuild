@@ -1,0 +1,127 @@
+################################################################################################################
+FROM alpine-glibc as ldapproxy-builder
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress add \
+      build-base git \
+      openssl-dev cyrus-sasl-dev \
+      libtool groff icu-dev db db-c++ db-dev
+
+RUN \
+    git clone -b OPENLDAP_REL_ENG_2_4_47 --single-branch https://github.com/openldap/openldap.git /openldap 2>&1
+
+WORKDIR /openldap
+
+RUN \
+    ./configure \
+      --prefix=/usr/local \
+      --with-tls --with-cyrus-sasl --enable-auditlog \
+      --enable-rewrite --enable-rwm \
+      --enable-dynamic --enable-modules \
+      --enable-overlays --enable-memberof \
+      --enable-monitor --enable-ldap \
+      --enable-null && \
+    make depend 2>&1 && make all 2>&1
+
+RUN \
+    make install 2>&1
+
+ENV PASSTHRU_MOD_PATH=/openldap/contrib/slapd-modules/passthru
+
+RUN \
+    git clone https://github.com/cbueche/openldap-passthru.git ${PASSTHRU_MOD_PATH} 2>&1
+
+WORKDIR ${PASSTHRU_MOD_PATH}
+RUN \
+    sed -i 's#prefix\=/opt/openldap#prefix\=/usr/local#g' Makefile && \
+    sed -i 's#$(LDAP_BUILD)/libtool#libtool#g' Makefile && \
+    make && make install
+
+################################################################################################################
+
+FROM alpine-glibc as ldapproxy-runtime
+
+ARG group=openldap
+ARG gid=1000
+ARG user=openldap
+ARG uid=1000
+
+RUN \
+    groupadd -g ${gid} ${group} && \
+    useradd -K MAIL_DIR=/dev/null -u ${uid} -g ${gid} -m -s /bin/bash ${user} 2>/dev/null && \
+    mkdir -p /etc/openldap/config && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+COPY --from=ldapproxy-builder /usr/local/etc/openldap/schema /etc/openldap/schema
+COPY --from=ldapproxy-builder /usr/local /usr/local
+
+COPY build/files/msaccount.schema /etc/openldap/schema/msaccount.schema
+COPY build/files/ldapproxy_entrypoint.sh /entrypoint.sh
+COPY build/files/default_slapd.conf /etc/openldap/config/source/slapd.conf
+
+RUN \
+    chown -R openldap:openldap /etc/openldap && \
+    touch /var/run/slapd.pid && \
+    touch /var/run/slapd.args && \
+    chown -R openldap:openldap /var/run/slapd.pid /var/run/slapd.args && \
+    chmod +x /entrypoint.sh
+
+ENV LDAP_LISTEN_PROTOCOL=ldap \
+    SLAPD_CONF_FILE=/etc/openldap/config/slapd.conf \
+    DEBUG_LEVEL=128
+ENV SLAPD_COND=${SLAPD_CONF_FILE}
+
+CMD [ "/entrypoint.sh" ]
+
+################################################################################################################
+
+FROM golang:alpine as ldapexporter-builder
+
+COPY --from=alpine-glibc /etc/apk/keys/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress add \
+      bash ca-certificates curl git \
+      --virtual build-deps --virtual build-deps-go \
+      build-base linux-pam-dev gcc musl-dev openssl-dev && \
+    GOPATH=/go go get -u github.com/golang/dep/cmd/dep 2>&1 && \
+    ln -sf /go/bin/dep /usr/local/bin/dep
+
+RUN \
+    git clone https://github.com/tomcz/openldap_exporter.git /exporter 2>&1
+
+WORKDIR /exporter
+
+ENV GOPATH=/usr/local/go
+RUN \
+    make deps 2>&1 && make build 2>&1
+
+################################################################################################################
+
+FROM alpine-glibc as ldapexporter-runtime
+
+COPY --from=ldapexporter-builder /exporter/target/openldap_exporter-linux /usr/bin/openldap_exporter
+
+ENV PROMPORT=9330 \
+    LDAP_ADDRESS="localhost:389" \
+    ROOTDN="cn=monitoring,cn=Monitor" \
+    ROOTPW=changeit \
+    INTERVAL=30s
+
+COPY build/files/exporter_entrypoint.sh /entrypoint.sh
+
+RUN \
+    chmod +x /entrypoint.sh && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+EXPOSE ${PROMPORT}
+
+CMD [ "/entrypoint.sh" ]

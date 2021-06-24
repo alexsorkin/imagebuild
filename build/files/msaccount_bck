@@ -1,0 +1,4 @@
+attributetype ( 1.2.840.113556.1.4.159
+       NAME 'accountExpires'
+       SYNTAX '2.5.5.16'
+       SINGLE-VALUE )

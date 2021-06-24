@@ -1,0 +1,27 @@
+################################################################################################################
+FROM gitea/gitea:latest as gitea-glibc-runtime
+
+LABEL MAINTENANER="Alex Sorkin"
+
+USER root
+
+COPY --from=alpine-glibc /bin/tini /bin/tini
+COPY --from=alpine-glibc /etc/apk/keys/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress add \
+      bash openssl linux-pam ca-certificates \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      busybox-extras shadow libsasl libltdl \
+      util-linux coreutils binutils findutils grep && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+EXPOSE 22 3000
+
+ENTRYPOINT ["/bin/tini", "--", "/usr/bin/entrypoint"]

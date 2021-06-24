@@ -1,0 +1,23 @@
+################################################################################################################
+FROM thecodingmachine/gotenberg:6.3.0 as gotenberg-glibc-runtime
+
+LABEL MAINTENANER="Alex Sorkin"
+
+USER root
+# Install common packages
+RUN \
+    apt-get update -y && \
+    apt-get install -y \
+      bash openssl ca-certificates dos2unix \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      util-linux coreutils binutils findutils grep && \
+    apt-get install -y \
+      ttf-mscorefonts-installer fontconfig \
+      ttf-dejavu ttf-ubuntu-font-family && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt
+
+USER 1001
+
+#  ttf-freefont font-noto-hebrew ttf-opensans ttf-cantarell

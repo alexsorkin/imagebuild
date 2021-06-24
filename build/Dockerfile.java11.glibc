@@ -1,0 +1,67 @@
+################################################################################################################
+FROM adoptopenjdk/openjdk11:alpine-jre as glibc-jre11
+
+ENV JAVA_HOME=/opt/java/openjdk \
+    PATH=/opt/java/openjdk/bin:${PATH}
+
+# Install common packages
+RUN echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      bash nano openssl linux-pam ca-certificates \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      busybox-extras shadow libsasl libltdl \
+      util-linux coreutils binutils findutils grep && \
+    export TINI_VERSION=`curl -s https://github.com/krallin/tini/releases/latest|grep -Eo "[[:digit:]]{1,2}"|xargs|sed 's/\ /./g'` && \
+    echo "Tini Supervisor Version: ${TINI_VERSION}" && \
+    curl -o /bin/tini -fsSL https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini-static-amd64 && \
+    chmod +x /bin/tini
+
+ENTRYPOINT [ "/bin/tini", "--" ]
+
+################################################################################################################
+FROM adoptopenjdk/openjdk11:alpine as glibc-jdk11
+
+COPY --from=alpine-glibc /bin/tini /bin/tini
+COPY --from=alpine-glibc /etc/apk/keys/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+ENV JAVA_HOME=/opt/java/openjdk \
+    PATH=/opt/java/openjdk/bin:${PATH}
+
+# Install common packages
+RUN echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      bash nano openssl linux-pam ca-certificates \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      busybox-extras shadow libsasl libltdl \
+      util-linux coreutils binutils findutils grep && \
+    export TINI_VERSION=`curl -s https://github.com/krallin/tini/releases/latest|grep -Eo "[[:digit:]]{1,2}"|xargs|sed 's/\ /./g'` && \
+    echo "Tini Supervisor Version: ${TINI_VERSION}" && \
+    curl -o /bin/tini -fsSL https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini-static-amd64 && \
+    chmod +x /bin/tini
+
+ENV MVN_RELEASE_SEARCH_BASE="https://downloads.apache.org/maven/maven-3/"
+
+RUN \
+    MVN_VERSION=$(curl -sSL ${MVN_RELEASE_SEARCH_BASE}|grep -v blank|grep href|tail -1|grep -Eo "[[:digit:]]{1,2}"|head -3|xargs|sed 's/\ /./g') && \
+    echo "Discovered Maven Version: ${MVN_VERSION}" && \
+    BASE_URL=${MVN_RELEASE_SEARCH_BASE}/${MVN_VERSION}/binaries && \
+    mkdir -p /usr/share/maven /usr/share/maven/ref && \
+    curl -fsSL -o /tmp/apache-maven.tar.gz ${BASE_URL}/apache-maven-${MVN_VERSION}-bin.tar.gz && \
+    tar -xzf /tmp/apache-maven.tar.gz -C /usr/share/maven --strip-components=1 && \
+    rm -f /tmp/apache-maven.tar.gz && \
+    ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
+
+ARG USER_HOME_DIR="/root"
+ENV MAVEN_HOME /usr/share/maven
+ENV MAVEN_CONFIG "${USER_HOME_DIR}/.m2"
+
+ENTRYPOINT [ "/bin/tini", "--" ]

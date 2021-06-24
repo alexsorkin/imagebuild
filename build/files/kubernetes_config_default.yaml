@@ -1,0 +1,76 @@
+kubernetes_clouds:
+  - name: 'development'
+    serverUrl: ""
+    skipTlsVerify: true
+    namespace: "digital"
+    jenkinsUrl: ""
+    credentialsId: ''
+    containerCapStr: '10'
+    retentionTimeout: 5
+    connectTimeout: 0
+    readTimeout: 0
+    podTemplatesDefaults:
+      instanceCap: 2147483647
+    containerTemplateDefaults:
+      name: 'jnlp'
+      image: "something/blueocean-jnlp:1.0.0"
+      alwaysPullImage: false
+      ttyEnabled: true
+      privileged: true
+      workingDir: '/var/jenkins_home'
+      resourceRequestCpu: '200m'
+      resourceLimitCpu: '2000m'
+      resourceRequestMemory: '200Mi'
+      resourceLimitMemory: '800Mi'
+      command: ''
+      args: ''
+    podTemplates:
+      - name: 'PARENT'
+        idleMinutes: 0
+        nodeSelector: 'blueocean-role=worker'
+        nodeUsageMode: 'NORMAL'
+        customWorkspaceVolumeEnabled: false
+        workspaceVolume:
+          type: 'EmptyDirWorkspaceVolume'
+          inMemory: false
+        volumes:
+        - type: 'HostPathVolume'
+          hostPath: '/var/lib/blueocean/digital/m2'
+          mountPath: '/var/jenkins_home/.m2'
+        keyValueEnvVar: []
+        podImagePullSecret: ''
+      - name: 'docker'
+        label: 'docker'
+        inheritFrom: 'PARENT'
+        containerTemplate:
+          name: "docker"
+          image: "something/blueocean-docker:1.0.0"
+          alwaysPullImage: true
+          resourceRequestCpu: '200m'
+          resourceRequestMemory: '500Mi'
+          resourceLimitCpu: '500m'
+          resourceLimitMemory: '1Gi'
+        volumes:
+        - type: 'HostPathVolume'
+          hostPath: '/var/run/docker.sock'
+          mountPath: '/var/run/docker.sock'
+        - type: 'SecretVolume'
+          secretName: 'docker-config-json'
+          mountPath: '/var/jenkins_home/.docker'
+        - type: 'ConfigMapVolume'
+          configMapName: 'deps-resolution-config'
+          mountPath: '/var/jenkins_home/.config'
+        - type: 'EmptyDirVolume'
+          inMemory: true
+          mountPath: '/var/jenkins_home/empty'
+      - name: 'kubectl'
+        label: 'kubectl'
+        inheritFrom: 'PARENT'
+        containerTemplate:
+          name: "kubectl"
+          image: "something/blueocean-kubectl:1.0.0"
+          alwaysPullImage: true
+          resourceRequestCpu: '200m'
+          resourceRequestMemory: '500Mi'
+          resourceLimitCpu: '500m'
+          resourceLimitMemory: '1Gi'

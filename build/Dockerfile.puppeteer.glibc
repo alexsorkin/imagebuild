@@ -1,0 +1,27 @@
+################################################################################################################
+FROM chromium-glibc-runtime as puppeteer-glibc-runtime
+
+USER root
+RUN \
+    apk add --no-cache --no-progress \
+        make gcc g++ git \
+        python3 python3-dev \
+        nodejs nodejs-npm yarn \
+        linux-headers binutils-gold gnupg zlib-dev libc-utils && \
+	rm -rf /var/lib/apt/lists/* \
+        /var/cache/apk/* \
+        /usr/share/man \
+        /tmp/*
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_VERSION=5.2.1
+
+RUN \
+    npm install --upgrade puppeteer-core@"${PUPPETEER_VERSION}" -g --silent --unsafe 2>&1 && \
+    apk del --purge --force --no-cache --no-progress \
+        linux-headers binutils-gold gnupg zlib-dev libc-utils && \
+    rm -rf /usr/include && \
+    rm -rf /etc/apk/cache /var/cache/apk /root/.node-gyp /usr/share/man /tmp/*
+
+USER chrome
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true

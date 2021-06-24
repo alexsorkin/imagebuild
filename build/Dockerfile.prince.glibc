@@ -1,0 +1,71 @@
+################################################################################################################
+FROM node14-glibc-runtime as princexml-glibc-runtime
+
+LABEL MAINTENANER="Alex Sorkin"
+
+COPY --from=alpine-glibc /etc/apk/keys/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      libxml2 pixman tiff giflib libpng \
+      lcms2 libjpeg libcurl fontconfig \
+      freetype  ttf-dejavu ttf-freefont \
+      ttf-ubuntu-font-family font-noto-hebrew \
+      ttf-opensans ttf-cantarell \
+      msttcorefonts-installer \
+      zlib libgomp && \
+    update-ms-fonts && \
+    fc-cache -f && \
+    apk --no-progress upgrade && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+ENV PRINCE_TMP_NAME=prince-alpine-x86_64 \
+    PRINCE_ALPINE_VERSION=alpine3.13
+
+RUN \
+    export PRINCE_XML_DOWNLOAD_FILE=$(curl -sSL https://www.princexml.com/download/|grep $PRINCE_ALPINE_VERSION|grep -v download|sed 's#</a>##g'|sed 's#</span>##g'| sed 's#<span class="dl-file">##g'|xargs) && \
+    echo "Discovered prince tarball: ${PRINCE_XML_DOWNLOAD_FILE}" && \
+    curl -o /tmp/${PRINCE_TMP_NAME}.tar.gz -fsSL https://www.princexml.com/download/${PRINCE_XML_DOWNLOAD_FILE} && \
+    mkdir -p /opt/${PRINCE_TMP_NAME} && \
+    tar -xzf /tmp/${PRINCE_TMP_NAME}.tar.gz -C /opt/${PRINCE_TMP_NAME} --strip-components=1 && \
+    /opt/${PRINCE_TMP_NAME}/install.sh && \
+    rm -rf /tmp/${PRINCE_TMP_NAME}.tar.gz /opt/${PRINCE_TMP_NAME}
+
+RUN \
+    npm update && \
+    npm install prince -g --unsafe 2>&1 && \
+    rm -rf /root/.node-gyp /root/.npmrc
+
+ENV LICENSE_FILE=/usr/local/lib/prince/license/license.dat
+
+################################################################################################################
+FROM princexml-glibc-runtime as princexml-glibc-sdk
+
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      make gcc g++ python3 git \
+      zlib-dev libressl-dev && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+WORKDIR /root/build
+RUN \
+    npm update && \
+    npm install node-gyp -g --unsafe 2>&1 && \
+    npm install node-expat -g --unsafe 2>&1 && \
+    npm install node-report -g --unsafe 2>&1 && \
+    rm -rf /root/.node-gyp /root/.npmrc
+
+WORKDIR /

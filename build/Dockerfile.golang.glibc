@@ -1,0 +1,34 @@
+################################################################################################################
+FROM alpine-glibc as golang-glibc-runtime
+
+LABEL MAINTENANER="Alex Sorkin"
+
+RUN \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+################################################################################################################
+FROM golang:alpine as golang-glibc-sdk
+
+LABEL MAINTENANER="Alex Sorkin"
+
+COPY --from=alpine-glibc /bin/tini /bin/tini
+COPY --from=alpine-glibc /etc/apk/keys/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress add \
+      bash openssl linux-pam ca-certificates \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      busybox-extras shadow libsasl libltdl \
+      util-linux coreutils binutils findutils grep \
+      --virtual build-deps build-base linux-pam-dev openssl-dev \
+      --virtual build-deps-go gcc musl-dev && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+ENTRYPOINT [ "/bin/tini", "--" ]

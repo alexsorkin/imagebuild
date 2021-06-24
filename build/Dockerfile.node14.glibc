@@ -1,0 +1,215 @@
+################################################################################################################
+FROM node:14-alpine3.12 as node14-glibc-runtime
+
+LABEL MAINTENANER="Alex Sorkin"
+
+COPY --from=alpine-glibc /bin/tini /bin/tini
+COPY --from=alpine-glibc /etc/apk/keys/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      bash nano openssl linux-pam ca-certificates \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      busybox-extras shadow libsasl libltdl \
+      util-linux coreutils binutils findutils grep \
+      tiff tiff-dev exiftool qpdf && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+################################################################################################################
+FROM node14-glibc-runtime as node14-glibc-sdk
+
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      make gcc g++ git \
+      python3 python3-dev py3-pip libxml2 libxslt && \
+    pip install --upgrade pip wheel && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+WORKDIR /root/build
+RUN \
+    npm update && \
+    npm install node-gyp -g --unsafe 2>&1 && \
+    npm install node-expat -g --unsafe 2>&1 && \
+    npm install node-report -g --unsafe 2>&1 && \
+    npm install clinic -g --unsafe 2>&1 && \
+    rm -rf /root/.node-gyp /root/.npmrc && \
+    rm -rf /usr/local/lib/node_modules/node-gyp/test && \
+    rm -rf /usr/local/lib/node_modules/clinic/node_modules/autocannon/test && \
+    rm -rf /usr/local/lib/node_modules/clinic/node_modules/public-encrypt/test
+
+WORKDIR /
+
+################################################################################################################
+FROM node14-glibc-sdk as node14-glibc-py
+
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      python3 python3-dev py3-pip && \
+    pip3 install --upgrade pip wheel && \
+    pip3 install --upgrade pypdf2 && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk && \
+    ln -sf /usr/bin/python3 /usr/bin/python
+
+WORKDIR /
+
+################################################################################################################
+FROM node14-glibc-py as node14-glibc-oict-rpm
+
+WORKDIR /installs
+RUN \
+    wget https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64/getPackage/oracle-instantclient19.8-basiclite-19.8.0.0.0-1.x86_64.rpm
+
+################################################################################################################
+FROM node:14-buster-slim as node14-glibc-ora
+
+LABEL MAINTENANER="Alex Sorkin"
+
+# Install common packages
+RUN \
+    apt-get update -y && \
+    apt-get install -y \
+      bash openssl ca-certificates dos2unix \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      util-linux coreutils binutils findutils grep \
+      python2 python2-dev python-pip python-wheel && \
+    apt-get install -y build-essential && \
+    pip install --upgrade pip wheel && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt && \
+    export TINI_VERSION=`curl -s https://github.com/krallin/tini/releases/latest|grep -Eo "[[:digit:]]{1,2}"|xargs|sed 's/\ /./g'` && \
+    echo "Tini Supervisor Version: ${TINI_VERSION}" && \
+    curl -o /bin/tini -fsSL https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini-static-amd64 && \
+    chmod +x /bin/tini
+
+# Install oracle instant client
+WORKDIR /tmp
+COPY --from=node14-glibc-oict-rpm /installs/*.rpm ./
+
+RUN \
+    apt-get update && apt-get -y upgrade && apt-get -y dist-upgrade && apt-get install -y alien libaio1 && \
+    alien -i --scripts oracle-instantclient*.rpm && \
+    rm -f oracle-instantclient19.8*.rpm && \
+    apt-get -y autoremove && apt-get -y clean
+
+# Install node dev packages
+WORKDIR /root/build
+RUN \
+    npm update && \
+    npm install node-gyp -g --unsafe 2>&1 && \
+    npm install node-expat -g --unsafe 2>&1 && \
+    npm install node-report -g --unsafe 2>&1 && \
+    rm -rf /root/.node-gyp /root/.npmrc && \
+    rm -rf /usr/local/lib/node_modules/node-gyp/test
+
+WORKDIR /
+
+ENTRYPOINT [ "/bin/tini", "--" ]
+
+################################################################################################################
+FROM openjdk:11-slim-buster as node14-glibc-etl
+
+LABEL MAINTENANER="Alex Sorkin"
+
+# Install common packages
+RUN \
+    apt-get update -y && \
+    apt-get install -y \
+      bash openssl ca-certificates dos2unix \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      util-linux coreutils binutils findutils grep \
+      python2 python2-dev python-pip python-wheel && \
+    pip install --upgrade pip wheel && \
+    export TINI_VERSION=`curl -s https://github.com/krallin/tini/releases/latest|grep -Eo "[[:digit:]]{1,2}"|xargs|sed 's/\ /./g'` && \
+    echo "Tini Supervisor Version: ${TINI_VERSION}" && \
+    curl -o /bin/tini -fsSL https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini-static-amd64 && \
+    chmod +x /bin/tini
+
+# Install oracle instant client
+WORKDIR /tmp
+COPY --from=node14-glibc-oict-rpm /installs/*.rpm ./
+
+RUN \
+    apt-get update && apt-get -y upgrade && apt-get -y dist-upgrade && apt-get install -y alien libaio1 && \
+    alien -i --scripts oracle-instantclient*.rpm && \
+    rm -f oracle-instantclient19.8*.rpm && \
+    apt-get -y autoremove && apt-get -y clean
+
+ARG USER_HOME_DIR="/root"
+ENV MAVEN_HOME=/usr/share/maven \
+    MAVEN_CONFIG="${USER_HOME_DIR}/.m2" \
+    MVN_RELEASE_SEARCH_BASE="https://downloads.apache.org/maven/maven-3/"
+
+RUN \
+    MVN_VERSION=$(curl -sSL ${MVN_RELEASE_SEARCH_BASE}|grep -v blank|grep href|tail -1|grep -Eo "[[:digit:]]{1,2}"|head -3|xargs|sed 's/\ /./g') && \
+    echo "Discovered Maven Version: ${MVN_VERSION}" && \
+    BASE_URL=${MVN_RELEASE_SEARCH_BASE}/${MVN_VERSION}/binaries && \
+    mkdir -p /usr/share/maven /usr/share/maven/ref && \
+    curl -fsSL -o /tmp/apache-maven.tar.gz ${BASE_URL}/apache-maven-${MVN_VERSION}-bin.tar.gz && \
+    tar -xzf /tmp/apache-maven.tar.gz -C /usr/share/maven --strip-components=1 && \
+    rm -f /tmp/apache-maven.tar.gz && \
+    ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
+
+# Install nodejs packages
+RUN \
+    curl -sSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key \
+      | apt-key add - && \
+    echo "deb https://deb.nodesource.com/node_14.x buster main" \
+      | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update -y && \
+    apt-get install -y build-essential && \
+    apt-get install -y \
+      nodejs && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt
+
+RUN \
+    npm update && \
+    npm install -g --unsafe \
+      node-gyp 2>&1 && \
+    rm -rf /root/.node-gyp /root/.npmrc 2>/dev/null || true && \
+    rm -rf /usr/local/lib/node_modules/node-gyp/test 2>/dev/null || true && \
+    npm install -g --unsafe \
+      yarn node-expat node-report java node-jt400 2>&1
+
+WORKDIR /
+
+ENTRYPOINT [ "/bin/tini", "--" ]
+
+################################################################################################################
+FROM node14-glibc-py as imagick-glibc-sdk
+
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+# Install image magic package
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      imagemagick imagemagick-dev && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk

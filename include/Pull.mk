@@ -1,0 +1,9 @@
+
+pull: $(BUILD_IMAGES) $(BUILD_LANG_IMAGES)
+
+$(BUILD_IMAGES): %:
+$(BUILD_LANG_IMAGES): %:
+
+%:
+	docker pull $(PULL_REGISTRY)/$@:glibc-$(PROJECT_VERSION)
+	docker tag $(PULL_REGISTRY)/$@:glibc-$(PROJECT_VERSION) $(PRODUCT_IMAGE_BASE)/$@:glibc-$(PROJECT_VERSION)

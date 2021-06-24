@@ -1,0 +1,50 @@
+################################################################################################################
+FROM node:8-alpine as node8-glibc-runtime
+
+LABEL MAINTENANER="Alex Sorkin"
+
+COPY --from=alpine-glibc /bin/tini /bin/tini
+COPY --from=alpine-glibc /etc/apk/keys/sgerrand.rsa.pub /etc/apk/keys/sgerrand.rsa.pub
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      bash nano openssl linux-pam ca-certificates \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      busybox-extras shadow libsasl libltdl \
+      util-linux coreutils binutils findutils grep && \
+    npm install pm2 -g --unsafe 2>&1 && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+################################################################################################################
+FROM node8-glibc-runtime as node8-glibc-sdk
+
+COPY --from=alpine-glibc /var/cache/apk /var/cache/apk
+
+RUN \
+    echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      make gcc g++ python git && \
+    rm -rf /etc/apk/cache && \
+    rm -rf /var/cache/apk
+
+WORKDIR /root/build
+RUN \
+    npm update && \
+    npm install node-gyp -g --unsafe 2>&1 && \
+    npm install node-expat -g --unsafe 2>&1 && \
+    npm install node-report -g --unsafe 2>&1 && \
+    npm install xlsx@0.12.8 -g --unsafe 2>&1 && \
+    npm install node-sass@4.10.0 -g --unsafe 2>&1 && \
+    rm -rf /root/.node-gyp /root/.npmrc
+
+WORKDIR /

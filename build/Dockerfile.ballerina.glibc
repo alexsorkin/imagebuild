@@ -1,0 +1,34 @@
+FROM ballerina/ballerina:1.2.8 as ballerina-sdk
+
+USER root
+ENV BALLERINA_VERSION=1.2.8
+
+RUN echo "ipv6" >> /etc/modules && \
+    ln -s /var/cache/apk /etc/apk/cache && \
+    apk --no-progress update && \
+    apk --no-progress upgrade && \
+    apk --no-progress add \
+      bash openssl linux-pam ca-certificates \
+      wget curl bc tar gzip libarchive-tools \
+      openssh-client jq make tzdata gettext \
+      busybox-extras shadow libsasl libltdl \
+      util-linux coreutils binutils findutils grep && \
+    export TINI_VERSION=`curl -s https://github.com/krallin/tini/releases/latest|grep -Eo "[[:digit:]]{1,2}"|xargs|sed 's/\ /./g'` && \
+    echo "Tini Supervisor Version: ${TINI_VERSION}" && \
+    curl -o /bin/tini -fsSL https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini-static-amd64 && \
+    chmod +x /bin/tini
+
+# Download glibc packages
+RUN export GLIBC_RELEASE_URL=https://github.com/sgerrand/alpine-pkg-glibc/releases && \
+    curl -sSL -o /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
+    export GLIBC_MAJOR=`curl -sS ${GLIBC_RELEASE_URL}/latest|grep -Eo "[[:digit:]]{1,2}"|head -2|xargs|sed "s#\ #.#g"` && \
+    export GLIBC_MINOR=`curl -sS ${GLIBC_RELEASE_URL}/latest|grep -Eo "[[:digit:]]{1,2}"|head -3|tail -1|xargs echo r|sed "s#\ ##g"` && \
+    export GLIBC_VERSION="${GLIBC_MAJOR}-${GLIBC_MINOR}" && \
+    echo "Glibc Version: ${GLIBC_VERSION}" && \
+    wget -q -O /tmp/glibc.apk ${GLIBC_RELEASE_URL}/download/${GLIBC_VERSION}/glibc-${GLIBC_VERSION}.apk && \
+    wget -q -O /tmp/glibc-bin.apk ${GLIBC_RELEASE_URL}/download/${GLIBC_VERSION}/glibc-bin-${GLIBC_VERSION}.apk && \
+    wget -q -O /tmp/glibc-i18n.apk ${GLIBC_RELEASE_URL}/download/${GLIBC_VERSION}/glibc-i18n-${GLIBC_VERSION}.apk && \
+    apk --no-progress add /tmp/glibc.apk /tmp/glibc-bin.apk /tmp/glibc-i18n.apk && \
+    rm -rf /tmp/glibc.apk /tmp/glibc-bin.apk /tmp/glibc-i18n.apk
+
+ENTRYPOINT [ "/bin/tini", "--" ]

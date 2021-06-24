@@ -1,0 +1,4 @@
+FROM selenium/hub:3
+FROM selenium/node-chrome:3
+FROM selenium/node-firefox:3
+FROM wakeful/selenium-grid-exporter:latest

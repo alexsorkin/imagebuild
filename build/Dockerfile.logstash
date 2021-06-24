@@ -1,0 +1,4 @@
+FROM library/logstash:6.8.1
+
+RUN \
+    sed -i 's#env2yaml#/usr/local/bin/env2yaml#g' /usr/local/bin/docker-entrypoint

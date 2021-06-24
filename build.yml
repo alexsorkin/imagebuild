@@ -1,0 +1,429 @@
+build:
+  version: 2016-03-14 # version of the build schema.
+  steps:
+    alpine-glibc:
+      name: alpine-glibc
+      dockerfile: build/Dockerfile
+      context: .
+      target: alpine-glibc
+    alpine-glibc-tagged:
+      name: _env(PRODUCT_IMAGE_BASE)/alpine
+      dockerfile: build/Dockerfile
+      context: .
+      target: alpine-glibc
+      depends_on:
+        - alpine-glibc
+    blueocean-slave-glibc-jnlp:
+      name: _env(PRODUCT_IMAGE_BASE)/blueocean-jnlp
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-jnlp
+      depends_on:
+        - alpine-glibc-tagged
+    blueocean-slave-glibc-docker:
+      name: _env(PRODUCT_IMAGE_BASE)/blueocean-docker
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-docker
+      depends_on:
+        - blueocean-slave-glibc-jnlp
+    blueocean-slave-glibc-consul-template:
+      name: _env(PRODUCT_IMAGE_BASE)/blueocean-consul-template
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-consul-template
+      depends_on:
+        - blueocean-slave-glibc-docker
+    blueocean-slave-glibc-kubectl:
+      name: _env(PRODUCT_IMAGE_BASE)/blueocean-kubectl
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-kubectl
+      depends_on:
+        - blueocean-slave-glibc-consul-template
+    blueocean-slave-glibc-python:
+      name: alpine-glibc-python
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-python
+      depends_on:
+        - blueocean-slave-glibc-kubectl
+    blueocean-slave-glibc-ansible:
+      name: _env(PRODUCT_IMAGE_BASE)/blueocean-ansible
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-ansible
+      depends_on:
+        - blueocean-slave-glibc-python
+    blueocean-slave-glibc-all:
+      name: blueocean-slave-glibc-all
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-all
+      depends_on:
+        - blueocean-slave-glibc-ansible
+    blueocean-slave-glibc-all-tagged:
+      name: _env(PRODUCT_IMAGE_BASE)/blueocean-all
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-slave-glibc-all
+      depends_on:
+        - blueocean-slave-glibc-all
+#    devops-tools-operator:
+#      name: _env(PRODUCT_IMAGE_BASE)/operator
+#      dockerfile: build/Dockerfile
+#      context: .
+#      target: devops-tools-operator
+#      depends_on:
+#        - blueocean-slave-glibc-all-tagged
+    blueocean-server-glibc:
+      name: _env(PRODUCT_IMAGE_BASE)/blueocean-server
+      dockerfile: build/Dockerfile
+      context: .
+      target: blueocean-server-glibc
+      depends_on:
+        - blueocean-slave-glibc-all-tagged 
+#    ldapproxy-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/ldapproxy-runtime
+#      dockerfile: build/Dockerfile.ldapproxy
+#      context: .
+#      target: ldapproxy-runtime
+#      depends_on:
+#        - alpine-glibc
+#    ldapexporter-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/ldapexporter-runtime
+#      dockerfile: build/Dockerfile.ldapproxy
+#      context: .
+#      target: ldapexporter-runtime
+#      depends_on:
+#        - ldapproxy-runtime
+    python-glibc-runtime:
+      name: _env(PRODUCT_IMAGE_BASE)/python
+      dockerfile: build/Dockerfile.python.glibc
+      context: .
+      target: python-glibc-runtime
+      depends_on:
+        - blueocean-slave-glibc-python
+    python3-glibc-runtime:
+      name: _env(PRODUCT_IMAGE_BASE)/python3
+      dockerfile: build/Dockerfile.python.glibc
+      context: .
+      target: python3-glibc-runtime
+      depends_on:
+        - python-glibc-runtime
+#    pandas-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/pandas
+#      dockerfile: build/Dockerfile.python.glibc
+#      context: .
+#      target: pandas-glibc-runtime
+#      depends_on:
+#        - python3-glibc-runtime
+#    opencv-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/opencv
+#      dockerfile: build/Dockerfile.python.glibc
+#      context: .
+#      target: opencv-glibc-runtime
+#      depends_on:
+#        - python-glibc-runtime
+#    node8-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/node8
+#      dockerfile: build/Dockerfile.node8.glibc
+#      context: .
+#      target: node8-glibc-runtime
+#      depends_on:
+#        - alpine-glibc
+#    node8-glibc-sdk:
+#      name: _env(PRODUCT_IMAGE_BASE)/node8-sdk
+#      dockerfile: build/Dockerfile.node8.glibc
+#      context: .
+#      target: node8-glibc-sdk
+#      depends_on:
+#        - node8-glibc-runtime
+#    node10-glibc-runtime-local:
+#      name: node10-glibc-runtime
+#      dockerfile: build/Dockerfile.node10.glibc
+#      context: .
+#      target: node10-glibc-runtime
+#      depends_on:
+#        - alpine-glibc
+#    node10-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/node10
+#      dockerfile: build/Dockerfile.node10.glibc
+#      context: .
+#      target: node10-glibc-runtime
+#      depends_on:
+#        - node10-glibc-runtime-local
+#    node10-glibc-sdk:
+#      name: _env(PRODUCT_IMAGE_BASE)/node10-sdk
+#      dockerfile: build/Dockerfile.node10.glibc
+#      context: .
+#      target: node10-glibc-sdk
+#      depends_on:
+#        - node10-glibc-runtime
+#    node10-glibc-sdk-local:
+#      name: node10-glibc-sdk
+#      dockerfile: build/Dockerfile.node10.glibc
+#      context: .
+#      target: node10-glibc-sdk
+#      depends_on:
+#        - node10-glibc-sdk
+#    node12-glibc-runtime-local:
+#      name: node12-glibc-runtime
+#      dockerfile: build/Dockerfile.node12.glibc
+#      context: .
+#      target: node12-glibc-runtime
+#      depends_on:
+#        - alpine-glibc
+#    node12-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/node12
+#      dockerfile: build/Dockerfile.node12.glibc
+#      context: .
+#      target: node12-glibc-runtime
+#      depends_on:
+#        - node12-glibc-runtime-local
+#    node12-glibc-sdk:
+#      name: _env(PRODUCT_IMAGE_BASE)/node12-sdk
+#      dockerfile: build/Dockerfile.node12.glibc
+#      context: .
+#      target: node12-glibc-sdk
+#      depends_on:
+#        - node12-glibc-runtime
+#    node12-glibc-sdk-local:
+#      name: node12-glibc-sdk
+#      dockerfile: build/Dockerfile.node12.glibc
+#      context: .
+#      target: node12-glibc-sdk
+#      depends_on:
+#        - node12-glibc-sdk
+    node14-glibc-runtime-local:
+      name: node14-glibc-runtime
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: node14-glibc-runtime
+      depends_on:
+        - alpine-glibc
+    node14-glibc-runtime:
+      name: _env(PRODUCT_IMAGE_BASE)/node14
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: node14-glibc-runtime
+      depends_on:
+        - node14-glibc-runtime-local
+    node14-glibc-sdk:
+      name: _env(PRODUCT_IMAGE_BASE)/node14-sdk
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: node14-glibc-sdk
+      depends_on:
+        - node14-glibc-runtime
+    node14-glibc-sdk-local:
+      name: node14-glibc-sdk
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: node14-glibc-sdk
+      depends_on:
+        - node14-glibc-sdk
+    gotenberg-glibc-runtime:
+      name: _env(PRODUCT_IMAGE_BASE)/gotenberg
+      dockerfile: build/Dockerfile.gberg.glibc
+      context: .
+      target: gotenberg-glibc-runtime
+      depends_on:
+        - node14-glibc-sdk-local
+    princexml-glibc-runtime:
+      name: _env(PRODUCT_IMAGE_BASE)/princexml
+      dockerfile: build/Dockerfile.prince.glibc
+      context: .
+      target: princexml-glibc-runtime
+      depends_on:
+        - node14-glibc-sdk-local
+    dotnet-glibc-runtime:
+      name: _env(PRODUCT_IMAGE_BASE)/dotnet
+      dockerfile: build/Dockerfile.dotnet.glibc
+      context: .
+      target: dotnet-glibc-runtime
+      depends_on:
+        - alpine-glibc
+    dotnet-glibc-sdk:
+      name: _env(PRODUCT_IMAGE_BASE)/dotnet-sdk
+      dockerfile: build/Dockerfile.dotnet.glibc
+      context: .
+      target: dotnet-glibc-sdk
+      depends_on:
+        - dotnet-glibc-runtime
+#    node10-glibc-py:
+#      name: _env(PRODUCT_IMAGE_BASE)/node10-py
+#     dockerfile: build/Dockerfile.node10.glibc
+#     context: .
+#      target: node10-glibc-py
+#      depends_on:
+#        - node10-glibc-sdk-local
+#    node10-glibc-ora:
+#      name: _env(PRODUCT_IMAGE_BASE)/node10-ora
+#      dockerfile: build/Dockerfile.node10.glibc
+#      context: .
+#      target: node10-glibc-ora
+#      depends_on:
+#        - node10-glibc-py
+#    node10-glibc-etl:
+#      name: _env(PRODUCT_IMAGE_BASE)/node10-etl
+#      dockerfile: build/Dockerfile.node10.glibc
+#      context: .
+#      target: node10-glibc-etl
+#      depends_on:
+#        - node10-glibc-ora
+#    node12-glibc-py:
+#      name: _env(PRODUCT_IMAGE_BASE)/node12-py
+#      dockerfile: build/Dockerfile.node12.glibc
+#      context: .
+#      target: node12-glibc-py
+#      depends_on:
+#        - node12-glibc-sdk-local
+#    node12-glibc-ora:
+#      name: _env(PRODUCT_IMAGE_BASE)/node12-ora
+#      dockerfile: build/Dockerfile.node12.glibc
+#      context: .
+#      target: node12-glibc-ora
+#      depends_on:
+#        - node12-glibc-py
+#    node12-glibc-etl:
+#      name: _env(PRODUCT_IMAGE_BASE)/node12-etl
+#      dockerfile: build/Dockerfile.node12.glibc
+#      context: .
+#      target: node12-glibc-etl
+#      depends_on:
+#        - node12-glibc-ora
+    node14-glibc-py:
+      name: _env(PRODUCT_IMAGE_BASE)/node14-py
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: node14-glibc-py
+      depends_on:
+        - node14-glibc-sdk-local
+    node14-glibc-ora:
+      name: _env(PRODUCT_IMAGE_BASE)/node14-ora
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: node14-glibc-ora
+      depends_on:
+        - node14-glibc-py
+    node14-glibc-etl:
+      name: _env(PRODUCT_IMAGE_BASE)/node14-etl
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: node14-glibc-etl
+      depends_on:
+        - node14-glibc-ora
+    imagick-glibc-sdk:
+      name: _env(PRODUCT_IMAGE_BASE)/imagick-sdk
+      dockerfile: build/Dockerfile.node14.glibc
+      context: .
+      target: imagick-glibc-sdk
+      depends_on:
+        - node14-glibc-etl
+    chromium-glibc-runtime:
+      name: chromium-glibc-runtime
+      dockerfile: build/Dockerfile.chromium.glibc
+      context: .
+      target: chromium-glibc-runtime
+      depends_on:
+        - alpine-glibc
+#    puppeteer-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/puppeteer
+#      dockerfile: build/Dockerfile.puppeteer.glibc
+#      context: .
+#      target: puppeteer-glibc-runtime
+#      depends_on:
+#        - chromium-glibc-runtime
+    princexml-glibc-sdk:
+      name: _env(PRODUCT_IMAGE_BASE)/princexml-sdk
+      dockerfile: build/Dockerfile.prince.glibc
+      context: .
+      target: princexml-glibc-sdk
+      depends_on:
+        - princexml-glibc-runtime
+    cypress-glibc-runtime:
+      name: _env(PRODUCT_IMAGE_BASE)/cypress
+      dockerfile: build/Dockerfile.cypress.glibc
+      context: .
+      target: cypress-glibc-runtime
+      depends_on:
+        - chromium-glibc-runtime
+    glibc-jre8:
+      name: _env(PRODUCT_IMAGE_BASE)/java8-jre
+      dockerfile: build/Dockerfile.java8.glibc
+      context: .
+      target: glibc-jre8
+      depends_on:
+        - alpine-glibc
+    glibc-jdk8:
+      name: _env(PRODUCT_IMAGE_BASE)/java8-jdk
+      dockerfile: build/Dockerfile.java8.glibc
+      context: .
+      target: glibc-jdk8
+      depends_on:
+        - glibc-jre8
+    glibc-jre11:
+      name: _env(PRODUCT_IMAGE_BASE)/java11-jre
+      dockerfile: build/Dockerfile.java11.glibc
+      context: .
+      target: glibc-jre11
+      depends_on:
+        - alpine-glibc
+    glibc-jdk11:
+      name: _env(PRODUCT_IMAGE_BASE)/java11-jdk
+      dockerfile: build/Dockerfile.java11.glibc
+      context: .
+      target: glibc-jdk11
+      depends_on:
+        - glibc-jre11
+    glibc-jre15:
+      name: _env(PRODUCT_IMAGE_BASE)/java15-jre
+      dockerfile: build/Dockerfile.java15.glibc
+      context: .
+      target: glibc-jre15
+      depends_on:
+        - alpine-glibc
+    glibc-jdk15:
+      name: _env(PRODUCT_IMAGE_BASE)/java15-jdk
+      dockerfile: build/Dockerfile.java15.glibc
+      context: .
+      target: glibc-jdk15
+      depends_on:
+        - glibc-jre15
+    ballerina-sdk:
+      name: _env(PRODUCT_IMAGE_BASE)/ballerina-sdk
+      dockerfile: build/Dockerfile.ballerina.glibc
+      context: .
+      target: ballerina-sdk
+      depends_on:
+        - glibc-jdk8
+#    golang-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/golang
+#      dockerfile: build/Dockerfile.golang.glibc
+#      context: .
+#      target: golang-glibc-runtime
+#      depends_on:
+#        - alpine-glibc
+#    golang-glibc-sdk:
+#      name: _env(PRODUCT_IMAGE_BASE)/golang-sdk
+#      dockerfile: build/Dockerfile.golang.glibc
+#      context: .
+#      target: golang-glibc-sdk
+#      depends_on:
+#        - golang-glibc-runtime
+    bootstraper-glibc-ansible:
+      name: _env(PRODUCT_IMAGE_BASE)/bootstraper
+      dockerfile: Dockerfile
+      context: .
+      target: bootstraper-glibc-ansible
+      depends_on:
+        - blueocean-slave-glibc-all-tagged
+
+#    gitea-glibc-runtime:
+#      name: _env(PRODUCT_IMAGE_BASE)/gitea-runtime
+#      dockerfile: build/Dockerfile.gitea.glibc
+#      context: .
+#      target: gitea-glibc-runtime
+#      depends_on:
+#        - alpine-glibc

@@ -1,0 +1,9 @@
+
+push: $(BUILD_IMAGES) $(BUILD_LANG_IMAGES)
+
+$(BUILD_IMAGES): %:
+$(BUILD_LANG_IMAGES): %:
+
+%:
+	docker tag $(PRODUCT_IMAGE_BASE)/$@:glibc-$(PROJECT_VERSION) $(PUSH_REGISTRY)/$@:glibc-$(PROJECT_VERSION)
+	docker push $(PUSH_REGISTRY)/$@:glibc-$(PROJECT_VERSION)

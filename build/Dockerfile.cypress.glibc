@@ -1,0 +1,25 @@
+################################################################################################################
+FROM cypress/browsers:node14.16.0-chrome90-ff88 as cypress-glibc-runtime 
+#node10.16.0-chrome77-ff71 as cypress-glibc-runtime 
+#node10.16.0-chrome76 as cypress-glibc-runtime
+#node10.16.3-chrome80-ff73 as cypress-glibc-runtime 
+
+ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
+
+RUN \
+    export TINI_VERSION=`curl -s https://github.com/krallin/tini/releases/latest|grep -Eo "[[:digit:]]{1,2}"|xargs|sed 's/\ /./g'` && \
+    echo "Tini Supervisor Version: ${TINI_VERSION}" && \
+    curl -o /bin/tini -fsSL https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini-static-amd64 && \
+    chmod +x /bin/tini
+
+RUN \
+    mkdir -p /root/.cache/Cypress && \
+    npm install -g npm --silent 2>&1 && \
+    npm install cypress@7.3.0 -g --silent --unsafe 2>&1 && \
+    echo "{}" > /home/node/cypress.json && \
+    mv /root/.cache /home/node/.cache && \
+    chown -R 1000:1000 /home/node
+
+#    npm install cypress@3.8.1 -g --silent --unsafe 2>&1 && \
+
+ENTRYPOINT ["/bin/tini", "--", "cypress", "run"]
